@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CyberRover 3D</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: an inspection console. One 3D stage, a side panel that changes with the mode (parts list / patrol log). */
+:root{
+  --ink:#0d1522;        /* page ground: deep blueprint ink */
+  --panel:#141f30;      /* raised surfaces */
+  --line:#24324a;       /* hairlines */
+  --fg:#e6ecf5;         /* text */
+  --muted:#8c9ab0;      /* secondary text */
+  --amber:#f2a93b;      /* the robot's own colour, the accent */
+  --good:#3cc6b4; --warn:#f2c14e; --bad:#ef5d5d;
+  --display:"Readex Pro","IBM Plex Sans Arabic",system-ui,sans-serif;
+  --body:"IBM Plex Sans Arabic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--fg);margin:0}
+body{font-family:var(--body);font-size:15px;line-height:1.6;direction:rtl;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 32px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(26px,4vw,38px);margin:0;letter-spacing:.2px;line-height:1.1;direction:ltr;text-align:right}
+h1 span{color:var(--amber)}
+.sub{margin:4px 0 0;color:var(--muted);font-size:14px}
+.slogan{font-family:var(--display);font-size:15px;color:var(--fg);border-inline-start:3px solid var(--amber);padding-inline-start:10px}
+.tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px;width:max-content;max-width:100%}
+.tabs button{font:600 14px var(--body);color:var(--muted);background:none;border:0;border-radius:7px;padding:8px 16px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--amber);color:#1a1205}
+.tabs button:focus-visible,.ctl button:focus-visible,.parts button:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px}
+@media (max-width:860px){.main{grid-template-columns:1fr}}
+.stage{position:relative;min-width:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#1a2840 0%,var(--ink) 70%);height:min(68vh,600px);min-height:340px}
+.stage canvas{display:block;width:100%;height:100%;touch-action:none}
+.hint{position:absolute;bottom:10px;inset-inline-start:12px;font-size:12px;color:var(--muted);background:#0d1522cc;padding:3px 9px;border-radius:6px;pointer-events:none}
+.tag{position:absolute;top:10px;inset-inline-end:12px;font:500 11px var(--mono);color:var(--muted);letter-spacing:.6px;text-transform:uppercase;background:#0d1522cc;padding:3px 9px;border-radius:6px}
+aside{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px;max-height:min(68vh,600px);min-height:340px}
+@media (max-width:860px){aside{max-height:none}}
+aside h2{font:600 15px var(--display);margin:0}
+.desc{font-size:13.5px;color:var(--muted);margin:0;min-height:3.2em}
+.desc b{color:var(--fg)}
+.parts{display:flex;flex-direction:column;gap:2px;overflow:auto;margin:0;padding:0;list-style:none}
+.parts button{width:100%;display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:8px;text-align:right;font:500 13.5px var(--body);color:var(--fg);background:none;border:0;border-radius:7px;padding:6px 8px;cursor:pointer}
+.parts button:hover,.parts button.on{background:#f2a93b1f}
+.parts .n{font:500 11px var(--mono);color:var(--muted)}
+.parts .c{font:400 11px var(--mono);color:var(--muted);direction:ltr}
+.grp{font:600 11px var(--body);color:var(--amber);letter-spacing:.4px;padding:8px 8px 2px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.stat{background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.stat b{display:block;font:500 18px var(--mono);font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;color:var(--muted)}
+.ctl{display:flex;gap:6px;flex-wrap:wrap}
+.ctl button{font:600 13px var(--body);color:var(--fg);background:var(--ink);border:1px solid var(--line);border-radius:7px;padding:6px 12px;cursor:pointer}
+.ctl button.pri{background:var(--amber);color:#1a1205;border-color:var(--amber)}
+.log{list-style:none;margin:0;padding:0;overflow:auto;display:flex;flex-direction:column;gap:6px;flex:1;min-height:120px}
+.log li{background:var(--ink);border:1px solid var(--line);border-inline-start:3px solid var(--good);border-radius:7px;padding:6px 9px;font-size:12.5px}
+.log li.warn{border-inline-start-color:var(--warn)} .log li.bad{border-inline-start-color:var(--bad);background:#ef5d5d14}
+.log .t{font:500 11px var(--mono);color:var(--muted);direction:ltr;display:inline-block}
+.log .m{font-family:var(--mono);direction:ltr;unicode-bidi:isolate}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11.5px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-inline-end:5px;vertical-align:-1px}
+.note{font-size:11.5px;color:var(--muted);margin:0}
+.flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media (max-width:860px){.flow{grid-template-columns:1fr 1fr}}
+.step{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+.step .k{font:500 11px var(--mono);color:var(--amber)}
+.step h3{font:600 14px var(--display);margin:2px 0 4px}
+.step p{margin:0;font-size:12.5px;color:var(--muted)}
+.foot{font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Cyber<span>Rover</span></h1>
+      <p class="sub">سايبر روفر · مركبة الفحص الأمني الذاتي والمسح اللاسلكي</p>
+    </div>
+    <div class="slogan">حيث تتوقف المراقبة الثابتة.. يتحرك سايبر روفر</div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-model" aria-selected="true">المجسّم ثلاثي الأبعاد</button>
+    <button role="tab" id="tab-sim" aria-selected="false">سيناريو التطبيق: جولة في فندق</button>
+  </div>
+
+  <div class="main">
+    <div class="stage" id="stage">
+      <span class="tag" id="tag">3D MODEL · 1:6</span>
+      <span class="hint" id="hint">اسحب للتدوير · مرّر للتكبير</span>
+    </div>
+
+    <aside id="panel-model">
+      <h2>قطع الروبوت</h2>
+      <p class="desc" id="pdesc">اختر قطعة من القائمة لتمييزها على المجسّم ومعرفة دورها.</p>
+      <ul class="parts" id="parts"></ul>
+    </aside>
+
+    <aside id="panel-sim" hidden>
+      <h2>سجل الجولة التفتيشية</h2>
+      <div class="stats">
+        <div class="stat"><b id="s-cp">0/7</b><span>نقاط QR</span></div>
+        <div class="stat"><b id="s-avg">—</b><span>متوسط dBm</span></div>
+        <div class="stat"><b id="s-dead">0</b><span>نقاط عمياء</span></div>
+        <div class="stat"><b id="s-thr">0</b><span>تهديدات</span></div>
+      </div>
+      <div class="ctl">
+        <button class="pri" id="b-play">إيقاف مؤقت</button>
+        <button id="b-reset">إعادة الجولة</button>
+        <button id="b-speed">السرعة ×1</button>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--good)"></i>إشارة قوية</span>
+        <span><i style="background:var(--warn)"></i>متوسطة</span>
+        <span><i style="background:var(--bad)"></i>نقطة عمياء / تهديد</span>
+        <span><i style="background:#5b8def"></i>نقطة وصول معتمدة</span>
+      </div>
+      <ul class="log" id="log"></ul>
+      <p class="note">القراءات محاكاة للعرض التوضيحي، وليست قياسات حقيقية.</p>
+    </aside>
+  </div>
+
+  <section class="flow" aria-label="آلية العمل">
+    <div class="step"><span class="k">1 · الحركة</span><h3>يتجول ويتفادى</h3><p>يسير في الممرات ويكشف العوائق بحساس المسافة على السيرفو.</p></div>
+    <div class="step"><span class="k">2 · الموقع</span><h3>يقرأ ملصق QR</h3><p>يتوقف عند كل نقطة فحص فتحدد الكاميرا مكانه بالضبط.</p></div>
+    <div class="step"><span class="k">3 · المسح</span><h3>يقيس الإشارة</h3><p>يأخذ عدة قراءات RSSI ويحسب متوسطها، ويسجل الشبكات ونوع تشفيرها.</p></div>
+    <div class="step"><span class="k">4 · المطابقة</span><h3>يقارن بالقائمة البيضاء</h3><p>أي اختلاف في BSSID أو القناة أو التشفير يُعد شبكة دخيلة.</p></div>
+    <div class="step"><span class="k">5 · التنبيه</span><h3>يبلّغ الفني</h3><p>يحدّث خريطة التغطية ويرسل تنبيهاً فورياً عند رصد خلل أو تهديد.</p></div>
+  </section>
+  <p class="foot">يعمل بالمسح السلبي (Passive Scanning) داخل نطاق المنشأة المصرّح بها فقط · تخصص تقنية المعلومات والدعم الفني · الكلية التقنية</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.prepend(renderer.domElement);
+
+const M = (c,o={}) => new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.6,metalness:.1},o));
+function box(w,h,d,mat){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.castShadow=m.receiveShadow=true;return m}
+function cyl(r,h,mat,seg=24){const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,seg),mat);m.castShadow=true;return m}
+function textTex(lines,w=256,h=128,bg='#05110f',fg='#3cc6b4'){
+  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+  x.fillStyle=bg;x.fillRect(0,0,w,h);x.fillStyle=fg;
+  lines.forEach((l,i)=>{x.font=l[1];x.fillText(l[0],12,l[2])});
+  const t=new THREE.CanvasTexture(c);return t;
+}
+
+/* ---------- Robot builder: front is +x ---------- */
+function buildRobot(){
+  const g = new THREE.Group(); const parts = {}; const wheels=[];
+  const add=(key,obj)=>{(parts[key]=parts[key]||[]).push(obj);g.add(obj);return obj};
+  const acrylic = M(0x2b3442,{roughness:.35,metalness:.2});
+  const lower = box(2.5,.08,1.5,acrylic); lower.position.y=.55; add('chassis',lower);
+  const upper = box(2.5,.08,1.5,acrylic); upper.position.y=1.15; add('chassis',upper);
+  [[1.1,.6],[1.1,-.6],[-1.1,.6],[-1.1,-.6]].forEach(([x,z])=>{const s=cyl(.04,.6,M(0xc9a96b,{metalness:.8,roughness:.3}),8);s.position.set(x,.85,z);add('chassis',s)});
+  // motors + wheels
+  [[.8,1],[-.8,1],[.8,-1],[-.8,-1]].forEach(([x,s])=>{
+    const mo=box(.55,.24,.24,M(0xe8c23a)); mo.position.set(x,.38,s*.55); add('motors',mo);
+    const w=new THREE.Group(); const tire=cyl(.4,.26,M(0x15181d,{roughness:.9}),32); tire.rotation.x=Math.PI/2; w.add(tire);
+    const hub=cyl(.22,.28,M(0xf2c14e),16); hub.rotation.x=Math.PI/2; w.add(hub);
+    for(let i=0;i<6;i++){const tr=box(.06,.1,.27,M(0x23272e)); const a=i/6*Math.PI*2; tr.position.set(Math.cos(a)*.38,Math.sin(a)*.38,0); tr.rotation.z=a; w.add(tr)}
+    w.position.set(x,.4,s*.86); add('motors',w); wheels.push(w);
+  });
+  // motor driver (red) with heatsink
+  const drv=box(.5,.06,.5,M(0xb3262b)); drv.position.set(-.55,.62,0); add('driver',drv);
+  const hs=box(.3,.22,.12,M(0x1c1f24,{metalness:.6})); hs.position.set(-.55,.76,0); add('driver',hs);
+  for(let i=0;i<5;i++){const f=box(.02,.22,.14,M(0x1c1f24,{metalness:.6}));f.position.set(-.67+i*.06,.8,0);add('driver',f)}
+  // battery holder + cells
+  const hol=box(.95,.08,.5,M(0x111317)); hol.position.set(.45,.63,0); add('holder',hol);
+  [-.12,.12].forEach(z=>{const c=cyl(.1,.8,M(0x2f6fd6,{roughness:.4}),20); c.rotation.z=Math.PI/2; c.position.set(.45,.74,z); add('cells',c)});
+  const bms=box(.32,.04,.2,M(0x1f7a4a)); bms.position.set(.45,.62,.48); add('bms',bms);
+  const buck=box(.42,.05,.24,M(0x1d4e9e)); buck.position.set(-.1,.62,-.5); add('buck',buck);
+  const pot=box(.08,.08,.08,M(0x3a7bf0)); pot.position.set(-.2,.68,-.5); add('buck',pot);
+  const coil=cyl(.07,.08,M(0x333),16); coil.position.set(0,.68,-.5); add('buck',coil);
+  // switch
+  const sw=box(.16,.1,.08,M(0x111317)); sw.position.set(-1.05,1.24,.68); add('misc',sw);
+  const swk=box(.05,.07,.04,M(0xe8e8e8)); swk.position.set(-1.05,1.31,.68); add('misc',swk);
+  // jumper wires
+  const wireMats=[0xef5d5d,0x3cc6b4,0xf2c14e,0x5b8def];
+  wireMats.forEach((c,i)=>{const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(-.4,.66,-.1+i*.06),new THREE.Vector3(-.2,1.0,-.2+i*.06),new THREE.Vector3(0,1.2,-.25+i*.05)]);
+    const t=new THREE.Mesh(new THREE.TubeGeometry(curve,16,.012,6),M(c)); add('misc',t)});
+  // ESP32 main board
+  const esp=box(.9,.05,.42,M(0x14243b)); esp.position.set(-.15,1.22,0); add('esp',esp);
+  const shield=box(.32,.05,.26,M(0xb8bfc8,{metalness:.9,roughness:.25})); shield.position.set(-.38,1.27,0); add('esp',shield);
+  for(let i=0;i<12;i++){[-.18,.18].forEach(z=>{const p=box(.03,.08,.03,M(0x111));p.position.set(-.5+i*.07,1.27,z);add('esp',p)})}
+  // antenna
+  const ant=cyl(.04,1.0,M(0x15181d,{roughness:.5}),12); ant.position.set(-1.0,1.75,-.55); add('antenna',ant);
+  const antb=cyl(.07,.12,M(0xc9a96b,{metalness:.8}),12); antb.position.set(-1.0,1.25,-.55); add('antenna',antb);
+  // servo + sonar
+  const servo=box(.24,.24,.12,M(0x2a5bd7)); servo.position.set(.95,1.32,0); add('servo',servo);
+  const horn=box(.06,.04,.3,M(0xf0f0f0)); horn.position.set(.95,1.46,0); add('servo',horn);
+  const sonar=new THREE.Group(); sonar.position.set(1.0,1.62,0);
+  const sb=box(.04,.26,.62,M(0x1d4e9e)); sonar.add(sb);
+  [-.16,.16].forEach(z=>{const e=cyl(.1,.14,M(0xcfd5dc,{metalness:.85,roughness:.3}),24); e.rotation.z=Math.PI/2; e.position.set(.08,0,z); sonar.add(e);
+    const mesh=cyl(.075,.02,M(0x333),24); mesh.rotation.z=Math.PI/2; mesh.position.set(.16,0,z); sonar.add(mesh)});
+  add('sonar',sonar);
+  // camera module on bracket
+  const br=box(.04,.3,.2,M(0x2b3442)); br.position.set(1.18,1.32,.5); add('cam',br);
+  const camb=box(.04,.36,.28,M(0x111c2e)); camb.position.set(1.22,1.5,.5); add('cam',camb);
+  const lens=cyl(.06,.08,M(0x0a0a0a,{metalness:.5,roughness:.2}),20); lens.rotation.z=Math.PI/2; lens.position.set(1.27,1.56,.5); add('cam',lens);
+  const glass=cyl(.035,.01,M(0x3a6fd0,{metalness:.9,roughness:.05,emissive:0x0b1f44}),20); glass.rotation.z=Math.PI/2; glass.position.set(1.315,1.56,.5); add('cam',glass);
+  const prog=box(.04,.12,.28,M(0x1f2a3d)); prog.position.set(1.22,1.28,.5); add('prog',prog);
+  // OLED
+  const oled=box(.04,.26,.36,M(0x10151c)); oled.position.set(-.85,1.36,.38); oled.rotation.z=-.35; add('oled',oled);
+  const tex=textTex([['CyberRover','bold 30px monospace',38],['SSID Hotel-Guest','22px monospace',72],['RSSI -62 dBm  QR-03','22px monospace',104]]);
+  const scr=new THREE.Mesh(new THREE.PlaneGeometry(.32,.2),new THREE.MeshBasicMaterial({map:tex}));
+  scr.position.set(-.872,1.365,.38); scr.rotation.set(0,-Math.PI/2,0); scr.rotateX(-.35); add('oled',scr);
+  // IR line sensors under front
+  [-.3,.3].forEach(z=>{const ir=box(.3,.03,.14,M(0x1a5e3a)); ir.position.set(1.05,.48,z); add('ir',ir);
+    const e=cyl(.03,.05,M(0x222),10); e.position.set(1.1,.44,z); add('ir',e)});
+  // QR sticker on side as decal
+  const qc=document.createElement('canvas');qc.width=qc.height=64;const q=qc.getContext('2d');q.fillStyle='#fff';q.fillRect(0,0,64,64);q.fillStyle='#000';
+  let s=7;for(let y=0;y<8;y++)for(let x=0;x<8;x++){s=(s*37+11)%101;if(s%3===0)q.fillRect(x*8,y*8,8,8)}
+  [[0,0],[40,0],[0,40]].forEach(([x,y])=>{q.fillRect(x,y,24,24);q.fillStyle='#fff';q.fillRect(x+4,y+4,16,16);q.fillStyle='#000';q.fillRect(x+8,y+8,8,8)});
+  // name decal
+  const nc=document.createElement('canvas');nc.width=512;nc.height=64;const n=nc.getContext('2d');n.fillStyle='#2b3442';n.fillRect(0,0,512,64);
+  n.font='bold 44px Readex Pro, sans-serif';n.fillStyle='#e6ecf5';n.fillText('Cyber',40,48);n.fillStyle='#f2a93b';n.fillText('Rover',175,48);
+  const name=new THREE.Mesh(new THREE.PlaneGeometry(1.6,.2),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(nc)}));
+  name.position.set(0,1.15,.752); g.add(name);
+  const name2=name.clone(); name2.position.z=-.752; name2.rotation.y=Math.PI; g.add(name2);
+  return {g,parts,wheels,sonar};
+}
+
+const PARTS=[
+ ['الحركة',[
+  ['motors','1','شاسيه رباعي الدفع + 4 محركات','4WD · TT','يحمل كل القطع ويتحرك بأربع عجلات مطاطية بين الممرات.'],
+  ['driver','2','مشغّل المحركات','TB6612FNG','يتحكم في اتجاه وسرعة المحركات بإشارات PWM من اللوحة الرئيسية.']]],
+ ['المعالجة والمسح',[
+  ['esp','3','لوحة التحكم الرئيسية','ESP32-32U','العقل المدبر: تمسح شبكات Wi-Fi وتقرأ RSSI ونوع التشفير، وتدير الحركة والشاشة، وترسل البيانات للوحة المراقبة.'],
+  ['antenna','4','هوائي خارجي','2.4GHz','يحسّن الاستقبال ويجعل قراءات قوة الإشارة أدق وأثبت.'],
+  ['cam','5','وحدة الكاميرا','ESP32-CAM','تقرأ ملصقات QR لتحديد الموقع وتبث صورة مباشرة للوحة المراقبة.'],
+  ['prog','6','مبرمجة الكاميرا','CAM-MB','منفذ USB لرفع البرنامج إلى وحدة الكاميرا، ويمكن فصلها بعد البرمجة.']]],
+ ['الاستشعار والعرض',[
+  ['sonar','7','حساس المسافة','HC-SR04','يرسل موجات فوق صوتية ليكشف الجدران والعوائق أمام الروبوت.'],
+  ['servo','8','محرك سيرفو','SG90','يدير حساس المسافة يميناً ويساراً ليختار الروبوت الطريق المفتوح.'],
+  ['ir','9','حساسات الخط الأرضي','TCRT5000','اختيارية: لتتبع خط مرسوم على الأرض عند الحاجة لمسار ثابت.'],
+  ['oled','10','شاشة العرض','OLED 0.96','تعرض اسم الشبكة الحالية وقوة الإشارة ورقم نقطة الفحص.']]],
+ ['الطاقة',[
+  ['cells','12','بطاريتا ليثيوم','18650 ×2','تعطيان 7.4V للمحركات والدارات.'],
+  ['holder','13','حامل البطاريات','2×18650','يثبت البطاريتين على التوالي فوق الشاسيه.'],
+  ['bms','14','لوحة الحماية','BMS 2S','تحمي البطاريات من الشحن الزائد والتفريغ العميق والقصر.'],
+  ['buck','15','المحوّل الخافض','LM2596','يخفض الجهد إلى 5V ثابتة للوحات والحساسات.'],
+  ['misc','16','ملحقات التوصيل','Switch · Wires','مفتاح التشغيل والأسلاك ومقسّم الجهد لطرف Echo.']]],
+];
+
+/* ---------- Scene setup ---------- */
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(38,1,.1,200);
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true; controls.dampingFactor=.08;
+scene.add(new THREE.HemisphereLight(0xcfe0ff,0x1a2235,.75));
+const sun=new THREE.DirectionalLight(0xffffff,.9); sun.position.set(6,10,5); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); const sc=sun.shadow.camera; sc.left=-22;sc.right=22;sc.top=14;sc.bottom=-14;sc.far=60; scene.add(sun);
+const rim=new THREE.DirectionalLight(0xf2a93b,.35); rim.position.set(-6,4,-6); scene.add(rim);
+
+/* Model world */
+const modelWorld=new THREE.Group(); scene.add(modelWorld);
+const hero=buildRobot(); modelWorld.add(hero.g);
+const pad=new THREE.Mesh(new THREE.CircleGeometry(2.6,64),M(0x18243a,{roughness:.9})); pad.rotation.x=-Math.PI/2; pad.receiveShadow=true; modelWorld.add(pad);
+const ringG=new THREE.RingGeometry(2.55,2.6,96); const ring=new THREE.Mesh(ringG,new THREE.MeshBasicMaterial({color:0xf2a93b,transparent:true,opacity:.5})); ring.rotation.x=-Math.PI/2; ring.position.y=.002; modelWorld.add(ring);
+
+/* parts list + highlight */
+const list=document.getElementById('parts'), pdesc=document.getElementById('pdesc'); let selKey=null;
+PARTS.forEach(([grp,items])=>{
+  const h=document.createElement('li'); h.className='grp'; h.textContent=grp; list.appendChild(h);
+  items.forEach(([k,n,name,code,desc])=>{
+    const li=document.createElement('li'); const b=document.createElement('button'); b.id='part-'+k;
+    b.innerHTML=`<span class="n">${n}</span><span>${name}</span><span class="c">${code}</span>`;
+    b.onclick=()=>select(k,name,desc,b); li.appendChild(b); list.appendChild(li);
+  });
+});
+function setGlow(k,on){(hero.parts[k]||[]).forEach(o=>o.traverse(m=>{if(m.material&&m.material.emissive){m.material=m.material.clone();m.material.emissive.setHex(on?0xf2a93b:0);m.material.emissiveIntensity=on?.55:0}}))}
+function select(k,name,desc,btn){
+  if(selKey) setGlow(selKey,false);
+  document.querySelectorAll('.parts button').forEach(x=>x.classList.remove('on'));
+  if(selKey===k){selKey=null;pdesc.textContent='اختر قطعة من القائمة لتمييزها على المجسّم ومعرفة دورها.';return}
+  selKey=k; setGlow(k,true); btn.classList.add('on'); pdesc.innerHTML=`<b>${name}:</b> ${desc}`;
+}
+
+/* ---------- Simulation world: hotel floor ---------- */
+const simWorld=new THREE.Group(); simWorld.visible=false; scene.add(simWorld);
+const W=36,D=20, OX=-18, OZ=-10; const P=(x,z,y=0)=>new THREE.Vector3(x+OX,y,z+OZ);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(W,D),M(0x1a2436,{roughness:.95})); floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; simWorld.add(floor);
+const corr=new THREE.Mesh(new THREE.PlaneGeometry(31,3),M(0x24314a,{roughness:.95})); corr.rotation.x=-Math.PI/2; corr.position.copy(P(17.5,10,.005)); corr.receiveShadow=true; simWorld.add(corr);
+const corr2=new THREE.Mesh(new THREE.PlaneGeometry(3,8),M(0x24314a,{roughness:.95})); corr2.rotation.x=-Math.PI/2; corr2.position.copy(P(29,15.5,.006)); simWorld.add(corr2);
+const wallM=M(0x7f8da5,{transparent:true,opacity:.55,roughness:.8});
+function wall(x1,z1,x2,z2,h=1.4,t=.15,mat=wallM){const len=Math.hypot(x2-x1,z2-z1);const w=box(len,h,t,mat);w.position.copy(P((x1+x2)/2,(z1+z2)/2,h/2));w.rotation.y=-Math.atan2(z2-z1,x2-x1);simWorld.add(w)}
+// outer
+wall(0,0,36,0);wall(0,20,36,20);wall(0,0,0,20);wall(36,0,36,20);
+// corridor walls with door gaps
+const gaps=[4,9,14,19,24];
+function corridorWall(z){let x=2;gaps.forEach(g=>{wall(x,z,g,z);x=g+1.2});wall(x,z,27.5,z)}
+corridorWall(8.5);
+wall(2,11.5,4,11.5);wall(5.2,11.5,9,11.5);wall(10.2,11.5,14,11.5);wall(15.2,11.5,19,11.5);wall(20.2,11.5,24,11.5);wall(25.2,11.5,27.5,11.5);
+wall(2,8.5,2,11.5); wall(30.5,8.5,30.5,11.5); wall(27.5,8.5,30.5,8.5);
+wall(27.5,11.5,27.5,13);wall(27.5,14.2,27.5,20); wall(30.5,11.5,30.5,16);wall(30.5,17.2,30.5,20);
+// room partitions
+[7,12,17,22,27.5].forEach(x=>{wall(x,0,x,8.5);if(x<27.5)wall(x,11.5,x,20)});
+// concrete stairwell (dead zone cause)
+const stair=box(4.4,1.6,3.6,M(0x55606f,{roughness:1})); stair.position.copy(P(16.5,5.6,.8)); simWorld.add(stair);
+const stl=document.createElement('canvas');stl.width=256;stl.height=64;const sx=stl.getContext('2d');sx.fillStyle='#55606f';sx.fillRect(0,0,256,64);sx.fillStyle='#e6ecf5';sx.font='600 30px IBM Plex Sans Arabic, sans-serif';sx.textAlign='center';sx.direction='rtl';sx.fillText('درج خرساني',128,42);
+const stTop=new THREE.Mesh(new THREE.PlaneGeometry(3.6,.9),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(stl)})); stTop.rotation.x=-Math.PI/2; stTop.position.copy(P(16.5,5.6,1.61)); simWorld.add(stTop);
+
+// access points
+const APS=[{x:5,z:4,name:'AP-1F-01'},{x:9.5,z:16,name:'AP-1F-02'},{x:21,z:15,name:'AP-1F-03'},{x:33,z:4,name:'AP-1F-04'},{x:33,z:17,name:'AP-1F-05'}];
+const ROGUE={x:24.5,z:14.5};
+function apMesh(color){const g=new THREE.Group();const base=cyl(.35,.12,M(0xe8ecf2),24);base.position.y=1.5;g.add(base);
+  const led=cyl(.08,.04,new THREE.MeshBasicMaterial({color}),12);led.position.y=1.57;g.add(led);
+  const pole=cyl(.04,1.45,M(0x8892a3),8);pole.position.y=.72;g.add(pole);return g}
+APS.forEach(a=>{const m=apMesh(0x5b8def);m.position.copy(P(a.x,a.z));simWorld.add(m)});
+const rogue=apMesh(0xef5d5d); rogue.position.copy(P(ROGUE.x,ROGUE.z)); simWorld.add(rogue);
+const rogueRing=new THREE.Mesh(new THREE.RingGeometry(.5,.62,48),new THREE.MeshBasicMaterial({color:0xef5d5d,transparent:true,opacity:0,side:THREE.DoubleSide}));
+rogueRing.rotation.x=-Math.PI/2; rogueRing.position.copy(P(ROGUE.x,ROGUE.z,.03)); simWorld.add(rogueRing);
+
+// QR checkpoints path
+const NODES=[
+ {x:2.8,z:10},
+ {x:6,z:10,cp:'QR-01',loc:'بهو الاستقبال'},
+ {x:11,z:10,cp:'QR-02',loc:'أمام غرفة 102'},
+ {x:16.5,z:10,cp:'QR-03',loc:'بجوار الدرج'},
+ {x:21,z:10,cp:'QR-04',loc:'أمام غرفة 105'},
+ {x:26,z:10,cp:'QR-05',loc:'أمام غرفة 107'},
+ {x:29,z:10},
+ {x:29,z:13.6,cp:'QR-06',loc:'جناح 201'},
+ {x:29,z:18,cp:'QR-07',loc:'قاعة الاجتماعات'},
+];
+const totalCP=NODES.filter(n=>n.cp).length;
+const qrTex=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const q=c.getContext('2d');q.fillStyle='#fff';q.fillRect(0,0,64,64);q.fillStyle='#111';let s=5;for(let y=1;y<7;y++)for(let x=1;x<7;x++){s=(s*29+7)%97;if(s%2)q.fillRect(x*8,y*8,8,8)}[[4,4],[36,4],[4,36]].forEach(([x,y])=>{q.fillRect(x,y,24,24);q.fillStyle='#fff';q.fillRect(x+4,y+4,16,16);q.fillStyle='#111';q.fillRect(x+8,y+8,8,8)});return new THREE.CanvasTexture(c)})();
+NODES.filter(n=>n.cp).forEach(n=>{const p=new THREE.Mesh(new THREE.PlaneGeometry(.55,.55),new THREE.MeshBasicMaterial({map:qrTex}));p.rotation.x=-Math.PI/2;p.position.copy(P(n.x,n.z,.02));simWorld.add(p)});
+
+// robot in sim
+const rover=buildRobot(); rover.g.scale.setScalar(.42); simWorld.add(rover.g);
+const scanRing=new THREE.Mesh(new THREE.RingGeometry(.9,1,64),new THREE.MeshBasicMaterial({color:0x3cc6b4,transparent:true,opacity:0,side:THREE.DoubleSide}));
+scanRing.rotation.x=-Math.PI/2; simWorld.add(scanRing);
+const trail=new THREE.Group(); simWorld.add(trail);
+const tileG=new THREE.CircleGeometry(.42,20);
+
+function rssiAt(x,z){
+  let best=-120;
+  APS.forEach(a=>{const d=Math.max(1,Math.hypot(a.x-x,a.z-z));let r=-34-24*Math.log10(d);if(z>8.5&&z<11.5&&Math.abs(a.z-10)>1.5)r-=3;best=Math.max(best,r)});
+  if(x>13.2&&x<19.8) best-=16; // concrete stairwell shadow
+  return Math.round(best);
+}
+const col=r=>r>=-60?0x3cc6b4:r>=-72?0xf2c14e:0xef5d5d;
+
+/* sim state */
+const logEl=document.getElementById('log');
+let st; function resetSim(){
+  st={i:0,t:0,pause:0,running:true,speed:1,done:false,seg:0,lastTile:null,cps:0,sum:0,dead:0,thr:0,rogueSeen:false,clock:new Date(2026,9,29,2,10,0)};
+  while(trail.children.length) trail.remove(trail.children[0]);
+  logEl.innerHTML=''; rogueRing.material.opacity=0;
+  const p=P(NODES[0].x,NODES[0].z); rover.g.position.copy(p); rover.g.rotation.y=0;
+  addLog('good','بدء الجولة المجدولة · الطابق الأول','02:10');
+  updStats(); document.getElementById('b-play').textContent='إيقاف مؤقت'; speedBtn.textContent='السرعة ×1';
+}
+function hhmm(){return st.clock.toTimeString().slice(0,5)}
+function addLog(cls,html,t){const li=document.createElement('li');li.className=cls;li.innerHTML=`<span class="t">${t||hhmm()}</span> · ${html}`;logEl.prepend(li)}
+function updStats(){document.getElementById('s-cp').textContent=st.cps+'/'+totalCP;document.getElementById('s-avg').textContent=st.cps?Math.round(st.sum/st.cps):'—';document.getElementById('s-dead').textContent=st.dead;document.getElementById('s-thr').textContent=st.thr}
+
+function arrive(n){
+  st.clock=new Date(st.clock.getTime()+95000);
+  const samples=[0,0,0,0,0].map(()=>rssiAt(n.x,n.z)+Math.round((Math.random()-.5)*4));
+  const avg=Math.round(samples.reduce((a,b)=>a+b)/samples.length);
+  st.cps++; st.sum+=avg;
+  const disk=new THREE.Mesh(new THREE.CircleGeometry(1.1,32),new THREE.MeshBasicMaterial({color:col(avg),transparent:true,opacity:.45}));
+  disk.rotation.x=-Math.PI/2; disk.position.copy(P(n.x,n.z,.012)); trail.add(disk);
+  scanRing.material.color.setHex(col(avg)); scanRing.position.copy(P(n.x,n.z,.03)); scanRing.userData.t=0;
+  const nets=APS.filter(a=>Math.hypot(a.x-n.x,a.z-n.z)<14).length;
+  if(avg<-72){st.dead++;addLog('bad',`${n.cp} · ${n.loc}<br>نقطة عمياء: <span class="m">${avg} dBm</span> · تذكرة صيانة #${1040+st.dead}`)}
+  else addLog(avg<-60?'warn':'good',`${n.cp} · ${n.loc}<br><span class="m">${avg} dBm</span> · ${nets} نقاط معتمدة · WPA2/WPA3`);
+  if(!st.rogueSeen&&Math.hypot(ROGUE.x-n.x,ROGUE.z-n.z)<6){
+    st.rogueSeen=true;st.thr++;
+    addLog('bad',`تهديد: توأم شرير قرب جناح 201<br><span class="m">SSID "Hotel-Guest" · BSSID 7A:2F:91:C4:0E:3B</span><br>غير موجود في القائمة البيضاء · شبكة مفتوحة بلا تشفير · أُرسل تنبيه Telegram للفني`);
+  }
+  updStats();
+}
+
+/* ---------- mode switching ---------- */
+let mode='model';
+const tabM=document.getElementById('tab-model'),tabS=document.getElementById('tab-sim');
+function setMode(m){mode=m;tabM.setAttribute('aria-selected',m==='model');tabS.setAttribute('aria-selected',m==='sim');
+  modelWorld.visible=m==='model';simWorld.visible=m==='sim';
+  document.getElementById('panel-model').hidden=m!=='model';document.getElementById('panel-sim').hidden=m!=='sim';
+  document.getElementById('tag').textContent=m==='model'?'3D MODEL · 1:6':'SIMULATION · FLOOR 1';
+  if(m==='model'){camera.position.set(4.6,3.2,4.8);controls.target.set(0,.9,0);controls.minDistance=3;controls.maxDistance=12;controls.autoRotate=!reduce;controls.autoRotateSpeed=1.2}
+  else{camera.position.set(-4,26,20);controls.target.set(0,0,1);controls.minDistance=8;controls.maxDistance=48;controls.autoRotate=false; if(!st) resetSim()}
+  controls.update(); resize();
+}
+tabM.onclick=()=>setMode('model'); tabS.onclick=()=>setMode('sim');
+const playBtn=document.getElementById('b-play'),speedBtn=document.getElementById('b-speed');
+playBtn.onclick=()=>{if(st.done){resetSim();return}st.running=!st.running;playBtn.textContent=st.running?'إيقاف مؤقت':'متابعة'};
+document.getElementById('b-reset').onclick=()=>resetSim();
+speedBtn.onclick=()=>{st.speed=st.speed===1?2:st.speed===2?4:1;speedBtn.textContent='السرعة ×'+st.speed};
+
+/* ---------- loop ---------- */
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}
+addEventListener('resize',resize);
+const clock=new THREE.Clock(); let tt=0;
+function tick(){
+  const dt=Math.min(clock.getDelta(),.05); tt+=dt;
+  if(mode==='model'){
+    hero.wheels.forEach(w=>w.rotation.z-=dt*(reduce?0:1.5));
+    hero.sonar.rotation.y=reduce?0:Math.sin(tt*1.2)*.5;
+    ring.material.opacity=.35+.15*Math.sin(tt*2);
+  } else if(st){
+    const sdt=dt*st.speed;
+    rover.sonar.rotation.y=Math.sin(tt*3)*.5;
+    if(scanRing.userData.t!==undefined&&scanRing.userData.t<1.2){scanRing.userData.t+=sdt;const k=scanRing.userData.t/1.2;scanRing.scale.setScalar(.4+k*2.6);scanRing.material.opacity=.8*(1-k)}
+    if(st.rogueSeen){rogueRing.material.opacity=.5+.5*Math.sin(tt*6);rogueRing.scale.setScalar(1+.25*Math.sin(tt*6))}
+    if(st.running&&!st.done){
+      if(st.pause>0){st.pause-=sdt}
+      else{
+        const a=NODES[st.i],b=NODES[st.i+1];
+        if(!b){st.done=true;addLog('good',`انتهت الجولة · ${totalCP} نقاط فحص · التقرير جاهز في لوحة المراقبة`);playBtn.textContent='جولة جديدة'}
+        else{
+          const len=Math.hypot(b.x-a.x,b.z-a.z); st.t+=sdt*1.6/len;
+          const x=a.x+(b.x-a.x)*Math.min(st.t,1), z=a.z+(b.z-a.z)*Math.min(st.t,1);
+          rover.g.position.copy(P(x,z));
+          const target=-Math.atan2(b.z-a.z,b.x-a.x); let dr=target-rover.g.rotation.y; dr=Math.atan2(Math.sin(dr),Math.cos(dr)); rover.g.rotation.y+=dr*Math.min(1,sdt*6);
+          rover.wheels.forEach(w=>w.rotation.z-=sdt*4);
+          if(!st.lastTile||Math.hypot(st.lastTile[0]-x,st.lastTile[1]-z)>.9){st.lastTile=[x,z];const r=rssiAt(x,z);const tile=new THREE.Mesh(tileG,new THREE.MeshBasicMaterial({color:col(r),transparent:true,opacity:.28}));tile.rotation.x=-Math.PI/2;tile.position.copy(P(x,z,.01));trail.add(tile)}
+          if(st.t>=1){st.t=0;st.i++;if(b.cp){arrive(b);st.pause=1.6}}
+        }
+      }
+    }
+  }
+  controls.update(); renderer.render(scene,camera); requestAnimationFrame(tick);
+}
+setMode('model'); requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
